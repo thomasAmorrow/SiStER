@@ -7,52 +7,94 @@
 %
 % J.-A. Olive, B.Z. Klein, E. Mittelstaedt, M. Behn, G. Ito, S. Howell
 % jaolive <at> ldeo.columbia.edu
-% March 2011 - April 2017
+% March 2011 - Sept 2016
 
-close all
+%close all
 
 % INITIALIZATION
 
 % Input File: loads parameter values, model geometry, boundary conditions
 if exist('running_from_SiStER_RUN','var')==0
     clear 
-    InpFil = input('Input file ? ','s');
+    InpFil = 'SiStER_Input_File_fracture_zone_ND';%input('Input file ? ','s');
 end
 run(InpFil)
 
+tic
 % construct grid and initialize marker / node arrays
 SiStER_Initialize
+
+
+%% Initialize weak zones for FZ
+if GEOM(2).fzSW==1
+%	[etam]=SiStER_interp_shear_nodes_to_markers(etas,x,y,xm,ym,icn,jcn); % to visualize viscosity on markers
+	for bb=1:length(GEOM(2).fz)-1
+			if (GEOM(2).fzstrong(bb)~=1)
+				WKm(xm<GEOM(2).fz(bb)*max(max(X))+GEOM(2).FZseed(1) & ...
+				xm>GEOM(2).fz(bb)*max(max(X))-GEOM(2).FZseed(1) & ...
+				ym<GEOM(2).top+GEOM(2).FZseed(2) & ...
+				ym>GEOM(2).top-(GEOM(2).step(bb+1)) & ...
+				im>0)=1;
+			end
+	end
+end
 
 % BEGIN TIME LOOP %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 time=0;
 
 for t=1:Nt % time loop
     
-    disp(['STARTING ITERATION: ' num2str(t) ' out of ' num2str(Nt)])
-    
     % update time
-    time=time+dt_m;
+    time=time+dt_m*t0;
     
-    % Here we prepare nodal arrays to feed the Stokes solver 
+    % Here we prepare nodal arrays to feed the solver 
+    % and get a (vx,vy,P) solution
+
+	%if t<=5
+	%	epsIIm(WKm>0)=GEOM(2).weakEPSIIm;
+	%	PARAMS.conv_crit_ResL2=1e-15;
+	%else
+	%	PARAMS.conv_crit_ResL2=1e-10;
+	%end
+	
+    %if (time<GEOM(2).weakTime*3.13e13 && t>5)
+		%ep(:)=0;
+        %ep(WKm>0)=MAT(2).ecrit;
+		%epsIIm(WKm>0)=1e-12;
+	%elseif t<=5
+		%epsIIm(WKm>0)=1e-12;
+		%ep(WKm>0)=MAT(2).ecrit;
+		%epsIIm(:)=0;
+		%ep(:)=0;
+    %end
+    
+    if time<GEOM(2).weakTime*t0
+		
+		if t<10		
+			epsIIm(WKm>0)=1e-12;
+		end
+		ep(WKm>0)=2*MAT(2).ecrit;
+		%epsIIm(:)=0;
+		%ep(:)=0;
+    end
+        
     SiStER_material_props_on_nodes
 
-    %%% SOLVE STOKES WITH NON-LINEAR RHEOLOGY HERE 
+    %%% SOLVE STOKES HERE 
     SiStER_flow_solve
     
     % GET STRAIN RATE FROM CURRENT SOLUTION
     epsIIm=SiStER_interp_shear_nodes_to_markers(epsII_s,x,y,xm,ym,icn,jcn);
+	%epsIIm(GEOM(2).WK_zones>0)=MAT(2).ecrit;
     
-    % USE STRAIN RATE TO UPDATE STRESSES ON MARKERS
-    SiStER_update_marker_stresses;
-    
-    % BUILD UP PLASTIC STRAIN IN YIELDING AREAS IF PLASTICITY IS ACTIVATED
-    if (PARAMS.YNPlas==1) 
-        SiStER_update_ep;
+    % BUILD UP ELASTIC STRESSES IF ELASTICITY IS ACTIVATED
+    if (PARAMS.YNElast==1) 
+        SiStER_update_marker_stresses;
     end
-  
+    
     % OUTPUT VARIABLES OF INTEREST (prior to rotation & advection)
     if (mod(t,dt_out)==0 && dt_out>0) || t==1 || t==Nt % SAVING SELECTED OUTPUT
-        disp('SAVING SELECTED VARIABLES TO OUTPUT FILE') 
+        disp('SAVING SELECTED VARIABLES') 
         filename=num2str(t);
         [etam]=SiStER_interp_shear_nodes_to_markers(etas,x,y,xm,ym,icn,jcn); % to visualize viscosity on markers
         save(filename,'X','Y','vx','vy','p','time','xm','ym','etam','rhom','BC','etan','Tm','im','idm','epsIIm','sxxm','sxym','ep','epNH','icn','jcn','qd','topo_x','topo_y')
@@ -60,6 +102,11 @@ for t=1:Nt % time loop
     
     % SET ADVECTION TIME STEP BASED ON CURRENT FLOW SOLUTION
     [dt_m]=SiStER_set_timestep(dx,dy,vx,vy,PARAMS);
+    
+    % BUILD UP PLASTIC STRAIN IN YIELDING AREAS IF PLASTICITY IS ACTIVATED
+    if (PARAMS.YNPlas==1) 
+        SiStER_update_ep;
+    end
 
     % ROTATE ELASTIC STRESSES IN CURRENT FLOW FIELD
     if (PARAMS.YNElast==1) 
@@ -71,8 +118,9 @@ for t=1:Nt % time loop
         SiStER_thermal_update;
     end
 
-    % MARKER ADVECTION, REMOVAL, AND ADDITION %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    SiStER_move_remove_and_reseed_markers;
+    
+    % MARKER UPDATE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    SiStER_update_markers;
     % advect markers in current flow field
     % remove markers if necessary
     % add markers if necessary
@@ -89,5 +137,5 @@ for t=1:Nt % time loop
 end
 
 disp('FIN')
-
+toc
     

@@ -56,7 +56,11 @@ vyc(:,2:Nx-1)=vy(:,1:Nx-2).*(ones(Ny,1)*(1-dx(1:Nx-2)./(dx(1:Nx-2)+dx(2:Nx-1))))
 if (BC.left(1)==1); %free slip
     vyc(:,1)=vy(:,2);
 elseif (BC.left(1)==0); % no slip
-    vyc(:,1)=0;
+    if (length(BC.left)==4);		%MorrowTA fixed slip left side
+      vyc(:,1)=BC.left(4);
+    else
+      vyc(:,1)=0;
+    end
 else
     disp('Problems in interp_velocities_to_shear_nodes: ');
     disp('BC.left(1) ~= 0 or 1');
@@ -68,8 +72,12 @@ if (BC.right(1)==1); %free slip
     vyc(:,Nx)=vy(:,Nx-1);
     
 elseif (BC.right(1)==0); % no slip
-    vyc(:,Nx)=0.0;
-    
+    if (length(BC.right)==4);		%MorrowTA fixed slip right side
+      vyc(:,Nx)=BC.right(4);
+    else
+      vyc(:,Nx)=0;
+    end
+       
 else 
     disp('Problems in interp_velocities_to_shear_nodes: ');
     disp('BC.right(1) ~= 0 or 1');

@@ -28,11 +28,10 @@ Kb=4*meta/(mdx+mdy)^2;
 
 
 % pressure anchor
-%IP=2;
-%JP=3;
-JP=ceil((Nx-1)/2); %G.Ito
-IP=2;
-
+IP=1;
+JP=2;
+%JP=ceil((Nx-1)/2); %G.Ito
+%IP=1;
 
 % fill in FD matrix and right-hand side
 
@@ -51,7 +50,8 @@ for j=1:Nx
         
         if (i==1) || (j==1) || (i==2 && j==2) || (i==2 && j==Nx) || ....
            (i==Ny && j==2) || (i==Ny && j==Nx) || (i==IP && j==JP && BC.top(2)~=3) || ...
-           (BC.top(2)==3 && i==2 && j > 2 && j < Ny) %<--G.Ito
+           (BC.top(2)==3 && i==2 && j > 2 && j < Nx) || (BC.top(2)==2 && i==2 && j > 2 && j < Nx) || (BC.bot(2)==3 && i==Ny && j>2 && j<Nx) || ...
+			(j==2 && BC.left(2)==3) || (j==2 && BC.right(2)==3)%<--G.Ito
             
             
             % boundary conditions
@@ -115,8 +115,26 @@ for j=1:Nx
                 R(inp,1)=0;
                
             end
+
+			if (BC.top(2)==2 && i==2 && j > 2 && j < Ny)  %open top effect all nodes but corners, G.Ito
+                % Pressure gradient between top two rows extrapolates to 0 pressure at very top
+ 
+                Lii(nn) = inp;
+                Ljj(nn) = inp;
+                Lvv(nn)  = Kb.*(1+dy(i-1)/(dy(i)+dy(i-1)));
+                nn = nn+1;
+
+                Lii(nn) = inp;
+                Ljj(nn) = inp+3;
+                Lvv(nn)  = -Kb.*dy(i-1)/(dy(i)+dy(i-1));
+                nn = nn+1;
+
+                R(inp,1)=0;
+               
+            end
+
             
-            if (i==IP && j==JP && BC.top(2)~=3)   % additional pressure cell i=2, j=3 P(i,j)=p0cell
+            if (i==IP && j==JP )   % additional pressure cell i=2, j=3 P(i,j)=p0cell
                  %                L(inp,inp)=Kb;
                 
                 Lii(nn) = inp;
@@ -127,6 +145,118 @@ for j=1:Nx
                 R(inp,1)=Kb*p0cell/Kc;
                            
             end
+
+			if (BC.bot(2)==3 && i==Ny) % open bottom
+            	Lii(nn) = inp;
+            	Ljj(nn) = inp;
+            	Lvv(nn) = Kb;
+            	nn      = nn+1;
+            
+            	R(inp,1)= Kb*BC.p_lith_bot/Kc;
+			end
+
+			if (j==2 && BC.left(2)==2)  %open sticky
+				if i<BC.sticky_bot_left
+                        Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= Kb*BC.p_lith(i,1)/Kc;%BC.p_lith(i,1)/Kc; Plith formulation TM
+				end
+			end
+
+			if (j==2 && BC.left(2)==2)
+				if i>=BC.sticky_bot_left && i<=BC.lith_bot_left
+                        Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+						R(inp,1)=0;
+				end
+			end
+
+			if (j==2 && BC.left(2)==2)  %open sticky
+				if i>BC.lith_bot_left
+                        Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= Kb*BC.p_lith(i,1)/Kc;%BC.p_lith(i,1)/Kc; Plith formulation TM
+				end
+			end
+
+
+
+			
+			if (j==2 && BC.left(2)==0)  
+				%if i<BC.sticky_bot_left-1
+                        Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= 0;%Kb*BC.p_lith(i,1)/Kc;%BC.p_lith(i,1)/Kc; Plith formulation TM
+				%end
+			end
+
+			if (j==2 && BC.left(2)==3 && i<=Ny-1) %open mantle
+				if i>BC.lith_bot_left+1
+                        Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= Kb*BC.p_lith(i,1)/Kc;%BC.p_lith(i,1)/Kc; Plith formulation TM
+				end
+			end
+
+			if (j==Nx && BC.right(2)==2) %open sticky
+				if i<BC.sticky_bot_right
+					    Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= Kb*BC.p_lith(i,end)/Kc;%BC.p_lith(i,2)/Kc; Plith formulation TM
+				end
+			end
+
+			if (j==Nx && BC.right(2)==2) %open sticky
+				if i>=BC.sticky_bot_right && i<=BC.lith_bot_right
+					    Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= 0;%BC.p_lith(i,2)/Kc; Plith formulation TM
+				end
+			end
+
+			if (j==Nx && BC.right(2)==2) %open sticky
+				if i>BC.lith_bot_right
+					    Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= Kb*BC.p_lith(i,end)/Kc;%BC.p_lith(i,2)/Kc; Plith formulation TM
+				end
+			end
+
+
+			if (j==Nx && BC.right(2)==3 && i<=Ny-1) %open mantle
+				if i>BC.lith_bot_right+1
+					    Lii(nn) = inp;
+                        Ljj(nn) = inp;
+                        Lvv(nn) = Kb;
+                        nn      = nn+1;
+                        
+                        R(inp,1)= Kb*BC.p_lith(i,end)/Kc;%BC.p_lith(i,2)/Kc; Plith formulation TM
+				end
+			end
            
             
         else
@@ -178,7 +308,7 @@ for j=1:Nx
             
             
             
-            if ((j==1) && (i<=Ny-1)) %|| ((j==Nx) && (i<=Ny-1))  % X-STOKES:  left boundary 
+            if ((j==1) && (i<=Ny-1) && BC.left(2)<2) %|| ((j==Nx) && (i<=Ny-1))  % X-STOKES:  left boundary 
                 %              L(invx,invx)=Kb;
                 
                 Lii(nn) = invx;
@@ -188,8 +318,63 @@ for j=1:Nx
                 
                 R(invx,1)=Kb*BC.left(3);
             end
+
+			if ((j==1) && (i<=Ny-1) && BC.left(2)==2)
+
+				if (i<BC.sticky_bot_left-1)
+
+	                Lii(nn) = invx;
+	                Ljj(nn) = invx+3*Ny;
+	                Lvv(nn) = Kc/dx(j);
+	                nn      = nn+1;
+                        
+	                Lii(nn) = invx;
+	                Ljj(nn) = invx;
+	                Lvv(nn) = -Kc/dx(j);
+	                nn      = nn+1;
+                        
+	                R(invx,1) = 0;
+
+				elseif (i>=BC.sticky_bot_left-1)
+
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx;
+                	Lvv(nn)  = Kb;
+                	nn = nn+1;
+                
+                	R(invx,1)=Kb*BC.left(3);
+				end
+			end
+
+			if ((j==1) && (i<=Ny-1) && BC.left(2)==3)
+
+				if (i>BC.lith_bot_left+1)
+
+	                Lii(nn) = invx;
+	                Ljj(nn) = invx+3*Ny;
+	                Lvv(nn) = Kc/dx(j);
+	                nn      = nn+1;
+                        
+	                Lii(nn) = invx;
+	                Ljj(nn) = invx;
+	                Lvv(nn) = -Kc/dx(j);
+	                nn      = nn+1;
+                        
+	                R(invx,1) = 0;
+
+				elseif (i<=BC.lith_bot_left)
+
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx;
+                	Lvv(nn)  = Kb;
+                	nn = nn+1;
+                
+                	R(invx,1)=Kb*BC.left(3);
+				end
+			end
+
             
-            if ((j==Nx) && (i<=Ny-1))  %  X-STOKES:  right  boundary
+            if ((j==Nx) && (i<=Ny-1) && BC.right(2)<2)  %  X-STOKES:  right  boundary
                 %              L(invx,invx)=Kb;
                 
                 Lii(nn) = invx;
@@ -199,7 +384,64 @@ for j=1:Nx
                 
                 R(invx,1)=Kb*BC.right(3);
             end
-            
+
+			if ((j==Nx) && (i<=Ny-1) && BC.right(2)==2)
+
+				if (i<BC.sticky_bot_right-1)
+
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx-3*Ny;
+                	Lvv(nn) = Kc/dx(j-1);
+                	nn      = nn+1;
+                        
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx;
+                	Lvv(nn) = -Kc/dx(j-1);
+                	nn      = nn+1;
+
+                    R(invx,1) = 0;
+
+				elseif (i>=BC.sticky_bot_right-1)
+
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx;
+                	Lvv(nn)  = Kb;
+                	nn = nn+1;
+                
+                	R(invx,1)=Kb*BC.right(3);
+				end
+
+
+			end
+
+			if ((j==Nx) && (i<=Ny-1) && BC.right(2)==3)
+
+				if (i>BC.lith_bot_right+1)
+
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx-3*Ny;
+                	Lvv(nn) = Kc/dx(j-1);
+                	nn      = nn+1;
+                        
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx;
+                	Lvv(nn) = -Kc/dx(j-1);
+                	nn      = nn+1;
+
+                    R(invx,1) = 0;
+
+				elseif (i<=BC.lith_bot_right)
+
+                	Lii(nn) = invx;
+                	Ljj(nn) = invx;
+                	Lvv(nn)  = Kb;
+                	nn = nn+1;
+                
+                	R(invx,1)=Kb*BC.right(3);
+				end
+
+
+			end             
             
             if i==1 && j<=Nx-1 && j>=2 % X-STOKES:  upper boundary not including sides
                 if BC.top(1)==1 % free slip
@@ -233,7 +475,7 @@ for j=1:Nx
                     Lvv(nn)  = 2*Kc*(1/dy(i)+1/(dy(i)+dy(i+1)));
                     nn = nn+1;
                     
-                    R(invx,1)=2*Kc*(1/dy(i))*BC.top_profile(j);  %G.Ito x-velocity at top boundary;
+                    R(invx,1)=0; %TM no slip...%2*Kc*(1/dy(i))*BC.top_profile(j);  %G.Ito x-velocity at top boundary;
                 end
                 
             end
@@ -253,7 +495,7 @@ for j=1:Nx
                     Lvv(nn)  = -2*Kc/(dy(i-1)+dy(i));
                     nn = nn+1;
                     
-                    R(invx,1)=2*Kc*(1/dy(i))*BC.bot_profile(j);
+                    R(invx,1)=0;%2*Kc*(1/dy(i))*BC.bot_profile(j);
                     
                 elseif BC.bot(1)==1 % free slip
                     %                  L(invx,invx)=Kc/(0.5*(dy(i-1)+dy(i)));
@@ -408,7 +650,7 @@ for j=1:Nx
                     
                     R(invy,1)=0;
                     
-                elseif BC.left(1)==0 % no slip
+                elseif (BC.left(1)==0 && length(BC.left)<4) % no slip
                     %              L(invy,invy)=-2*Kc*(1/(dx(j)+dx(j+1))+1/dx(j));
                     %              L(invy,invy+3*Ny)=2*Kc/(dx(j+1)+dx(j));
                     
@@ -423,6 +665,21 @@ for j=1:Nx
                     nn = nn+1;
                     
                     R(invy,1)=0;
+
+				elseif (BC.left(1)==0 && length(BC.left)==4)
+
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy;
+                    Lvv(nn)  = 2*Kc*dx(j+1)*1/(dx(j)*(dx(j)+dx(j+1)));
+                    nn = nn+1;
+                    
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy+3*Ny;
+                    Lvv(nn)  = 2*Kc*(1/(dx(j)+dx(j+1)));
+                    nn = nn+1;
+                    
+                    R(invy,1)=2*Kc*1/dx(j)*BC.left(4);
+
                     
                 end
             end
@@ -443,7 +700,7 @@ for j=1:Nx
                     
                     R(invy,1)=0;
                     
-                elseif BC.right(1)==0 % no slip
+                elseif (BC.right(1)==0 && length(BC.right)<4) % no slip
                     %              L(invy,invy)=Kc*(1/(dx(j)+dx(j-1))+1/dx(j));
                     %              L(invy,invy-3*Ny)=-Kc/(dx(j)+dx(j-1));
                     
@@ -458,7 +715,21 @@ for j=1:Nx
                     nn = nn+1;
                     
                     R(invy,1)=0;
+
+		elseif (BC.right(1)==0 && length(BC.right)==4)
+
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy;
+                    Lvv(nn)  = Kb*2*(2*dx(j)+dx(j-1))/dx(j)/(dx(j)+dx(j-1));
+                    nn = nn+1;
                     
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy-3*Ny;
+                    Lvv(nn) = -2*Kb/(dx(j)+dx(j-1));
+                    nn = nn+1;
+                    
+                    R(invy,1)=2*Kb*1/dx(j)*BC.right(4);
+  
                 end
                 
             end
@@ -484,6 +755,23 @@ for j=1:Nx
                     nn = nn+1;
                     
                     R(invy,1)=Kb*BC.top(3);
+
+				elseif BC.top(2)==2 %infinite
+
+					dL=300e3;
+
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy;
+					Lvv(nn)	= Kc*(1/dL+1/dy(i));
+                    nn = nn+1;
+
+                    Lii(nn) = invy; 
+                    Ljj(nn) = invy+3;
+                    Lvv(nn) = Kc*(-1/dy(i));
+                    nn = nn+1;
+                    
+                    R(invy,1)=0;
+
                 elseif BC.top(2)==3
                     %               open top dvy/dy=0, G.Ito
                     
@@ -498,6 +786,15 @@ for j=1:Nx
                     nn      = nn+1;
                     
                     R(invy,1)=0;
+
+				elseif BC.top(2)==4 %velo profile
+
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy;
+                    Lvv(nn)  = Kb;
+                    nn = nn+1;
+                    
+                    R(invy,1)=Kb*BC.top_prof(j);
                     
                 end
             end
@@ -529,6 +826,29 @@ for j=1:Nx
                     nn = nn+1;
 
                     R(invy, 1) = 0;
+
+				elseif BC.bot(2) == 3 %open boundary
+                	Lii(nn) = invy;
+                	Ljj(nn) = invy-3;
+                	Lvv(nn) = Kc/dy(i-1);
+                	nn      = nn+1;
+                
+                	Lii(nn) = invy;
+                	Ljj(nn) = invy;
+                	Lvv(nn) = -Kc/dy(i-1);
+                	nn      = nn+1;
+
+                	R(invy,1)= 0;
+
+                elseif BC.bot(2) == 4 % velocity profile
+
+                    Lii(nn) = invy;
+                    Ljj(nn) = invy;
+                    Lvv(nn)  = Kb;
+                    nn = nn+1;
+                    
+                    R(invy,1)=Kb*BC.bot_prof(j);
+
                 end
                     
             end

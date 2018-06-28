@@ -19,7 +19,26 @@ if PARAMS.BalanceStickyLayer==1
 end
 
 
-ResL2=1; 
+ResL2=1;
+
+% FZ modifications MorrowTA 25 Oct 2016
+if GEOM(2).fzSW==1
+    SiStER_calc_subsidence_rate;
+end
+
+% SOLVE LINEAR SYSTEM
+% Get locations of phase boundaries on L/R for mixed BCs
+%if t==1 && GEOM(2).fzSW==1
+%	[etam]=SiStER_interp_shear_nodes_to_markers(etas,x,y,xm,ym,icn,jcn); % to visualize viscosity on markers
+%end
+SiStER_find_sticky_layer_on_sides;
+SiStER_find_lith_on_sides;
+
+%epsIIm(GEOM(2).WK_zones>0)=10*MAT(2).ecrit;
+
+% Calculate lithostatic pressure for open boundaries and dike;
+% #WILL NOT WORK WITH NONZERO gx#
+SiStER_get_boundary_pressures;
 
 for pit=1:PARAMS.Npicard_max
     
@@ -44,21 +63,13 @@ for pit=1:PARAMS.Npicard_max
     if (exist('S','var'));
         Res=L*S-R;
         ResL2=norm(Res,2)/norm(R,2);
-        
-    else
-        
-        S=L\R; disp('First solve is linearized');
-        Res=L*S-R;
-        ResL2=norm(Res,2)/norm(R,2);
-        
-        
-    end
+    end;
     %---------------------------------------------------------------------------------
     % Solve for new solution S using Picard or approximate Newton or a
     % combination of the two 
     %---------------------------------------------------------------------------------  
     
-    if (pit >= PARAMS.pitswitch);
+    if(pit >= PARAMS.pitswitch);
        if pit==PARAMS.pitswitch; disp('switching from Picard to approx. Newton'); end;
        beta=1;
        S=S-beta.*(L\Res);  % approximate Newton update, with L as approximation to Jacobian
@@ -66,52 +77,34 @@ for pit=1:PARAMS.Npicard_max
     else
        S=L\R; % Picard update
        it_type='Picard: ';
-    end
+    end;
    
     [p, vx, vy]=SiStER_reshape_solver_output(S,Kc,Nx,Ny);
         
     %% ASSESS CONVERGENCE    
     if(ResL2<PARAMS.conv_crit_ResL2 && pit >= PARAMS.Npicard_min)
+        disp(['Initial residual = ' num2str(ResL2init)])
         disp(['Final residual = ' num2str(ResL2)])
-        disp([num2str(pit) ' iterations converged: L2 norm of residual dropped below ' num2str( PARAMS.conv_crit_ResL2)]);
+        disp(['CONVERGED - L2 norm of residual dropped below ' num2str( PARAMS.conv_crit_ResL2)]);
         break;
 	elseif (pit==PARAMS.Npicard_max);
+        disp(['Initial residual = ' num2str(ResL2init)])
         disp(['Final residual = ' num2str(ResL2)])
-        disp(['WARNING! ' num2str(pit) ' Picard / approx. Newton iterations failed to converge within tolerance of ' num2str( PARAMS.conv_crit_ResL2)]);
+        disp(['WARNING! ' num2str(pit) ' Picard / approx. Newton iterations failed to converge.']);
     end
+    
+    
+end
+    
+    
+ 
 
-   
-%% get strain rate on nodes current solution
+%% get strain rate on nodes from (hopefully) converged solution
 [EXX,EXY]=SiStER_get_strain_rate(vx,vy,dx,dy,BC);
 
 EXY_n=SiStER_interp_shear_to_normal_nodes(EXY);       
 EXX_s=SiStER_interp_normal_to_shear_nodes(EXX,dx,dy); 
 epsII_n=sqrt(EXX.^2+EXY_n.^2);
 epsII_s=sqrt(EXX_s.^2+EXY.^2);
-
-
-
-% helpful to visualize convergence
-% figure(1)
-% pcolor(X,Y,log10(etas))
-% set(gca,'ydir','reverse')
-% axis equal
-% caxis([18 25])
-% colorbar
-% title(num2str(pit))
-% pause(.001)
-
-% RESIDUAL FOR INDIVIDUAL VARIABLES
-% [pres, vxres, vyres]=SiStER_reshape_solver_output(Res,Kc,Nx,Ny);
-% figure(1)
-% pcolor(X,Y,vxres)
-% set(gca,'ydir','reverse')
-% axis equal
-% colorbar
-% title(num2str(pit))
-% pause(.001)
-
-
-end
 
       

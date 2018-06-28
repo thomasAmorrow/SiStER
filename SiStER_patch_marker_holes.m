@@ -1,4 +1,4 @@
-function [xm, ym, im, Ifix, mp, ep, idm, Tm, sxxm, sxym, epNH, epsIIm]=SiStER_patch_marker_holes(icn,jcn,quad,Nx,Ny,Mquad,Mquad_crit,xm,ym,x,y,dx,dy,im,ep,idm,Tm,sxxm,sxym,epNH,epsIIm)
+function [xm, ym, im, Ifix, mp, ep, idm, Tm, sxxm, sxym, epNH, epsIIm, WKm]=SiStER_patch_marker_holes(icn,jcn,quad,Nx,Ny,Mquad,Mquad_crit,xm,ym,x,y,dx,dy,im,ep,idm,Tm,sxxm,sxym,epNH,epsIIm,WKm)
 % function [xm, ym, im, Ifix, mp, ep, idm, Tm, sxxm, sxym, epNH, epsIIm]=SiStER_patch_marker_holes(icn,jcn,quad,Nx,Ny,Mquad,Mquad_crit,xm,ym,x,y,dx,dy,im,ep,idm,Tm,sxxm,sxym,epNH,epsIIm)
 %
 % seeds new markers in all quadrants where marker density has fallen below
@@ -19,25 +19,25 @@ mdy=min(dy)/2;
 %%%%%%%%%%%%%%% LOOK FOR EMPTY (no more markers) QUADRANTS
 
 mp = accumarray({icn, jcn, quad}, 1, [Ny-1, Nx-1, 4]);
+    
 empty = find(mp==0);
-
-display_message_if_empty=0;
-if display_message_if_empty==1
-    if(~isempty(empty))
-        [iEmpty,jEmpty,kEmpty] = ind2sub(size(mp), empty);
-        for n = 1:min(length(iEmpty), 100)
-            disp(['WARNING ! Empty quadrant number ' num2str(kEmpty(n)) ' in cell i = ' num2str(iEmpty(n)) ', j = ' num2str(jEmpty(n))])
-        end
+if(~isempty(empty))
+    [iEmpty,jEmpty,kEmpty] = ind2sub(size(mp), empty);
+    for n = 1:min(length(iEmpty), 100)
+        
+        disp(['WARNING ! Empty quadrant number ' num2str(kEmpty(n)) ' in cell i = ' num2str(iEmpty(n)) ', j = ' num2str(jEmpty(n))])
+        
     end
 end
     
     
 %%%%% LOCATE QUADRANTS WHERE MARKER DENSITY IS BELOW THRESHOLD
-mpCrInd = find(mp<md_crit);
-[iicr, jjcr, qqcr] = ind2sub(size(mp), mpCrInd);
-iicr = iicr';
-jjcr = jjcr';
-qqcr = qqcr';
+
+     mpCrInd = find(mp<md_crit);
+    [iicr, jjcr, qqcr] = ind2sub(size(mp), mpCrInd);
+    iicr = iicr';
+    jjcr = jjcr';
+    qqcr = qqcr';
     
 % NEED TO SEED NEW MARKERS IN THOSE QUADRANTS 
 % SO THAT WE ARE BACK TO THE INITIAL MARKER DENSITY IN THOSE QUADRANTS
@@ -51,6 +51,7 @@ te_fix=[]; % temperature
 sxx_fix=[]; % stress
 sxy_fix=[]; % stress
 sr_fix=[]; % strain rate
+WK_fix=[];
    
 if ~isempty(iicr) % if there are critical quadrants
          
@@ -105,15 +106,19 @@ if ~isempty(iicr) % if there are critical quadrants
         sxx_fix=zeros(1,Nfix);
         sxy_fix=zeros(1,Nfix);
         sr_fix=zeros(1,Nfix);
+		WK_fix=zeros(1,Nfix);
         
     else
         
-
+    
+        
         % assign the average phase of the markers that are left in the cell
         phase_fix=round(mode((im(icn==icell & jcn==jcell))));
         % assign the greatest plastic strain of the markers that are left in the cell
         strain_fix=max((ep(icn==icell & jcn==jcell)));
         strainNH_fix=max((epNH(icn==icell & jcn==jcell)));
+        % grow the index array
+        %index_fix=[max(idm)+1:1:max(idm)+Nfix];
         % assign the average temperature of the markers that are left in
         % the cell
         temp_fix=mean((Tm(icn==icell & jcn==jcell)));
@@ -122,8 +127,10 @@ if ~isempty(iicr) % if there are critical quadrants
         stress_xy_fix=mean((sxym(icn==icell & jcn==jcell)));
         strainrate_fix=mean((epsIIm(icn==icell & jcn==jcell)));
         
-    end
+        end
 
+
+    
     im_fix=[im_fix phase_fix*ones(1,Nfix)];
     ep_fix=[ep_fix strain_fix*ones(1,Nfix)];
     epNH_fix=[epNH_fix strainNH_fix*ones(1,Nfix)];
@@ -131,11 +138,14 @@ if ~isempty(iicr) % if there are critical quadrants
     sxx_fix=[sxx_fix stress_xx_fix*ones(1,Nfix)];
     sxy_fix=[sxy_fix stress_xy_fix*ones(1,Nfix)];
     sr_fix=[sr_fix strainrate_fix*ones(1,Nfix)];
+	WK_fix=[WK_fix zeros(1,Nfix)];
+    
     
     end
 
 
-       
+        
+
 % NOW ASSIGN PROPERTIES TO THOSE MARKERS  
 Npatch=length(xrsd);
 index_fix=max(idm)+1:max(idm)+Npatch;
@@ -151,9 +161,10 @@ Tm(Ifix)=te_fix;
 sxxm(Ifix)=sxx_fix;
 sxym(Ifix)=sxy_fix;
 epsIIm(Ifix)=sr_fix;
+WKm(Ifix)=WK_fix;
 
-% uncomment to display number of added markers
-%fprintf('\n%d%s%d%s\n', length(Ifix), ' markers added in ', length(iicr), ' cell quadrants.')
+
+fprintf('\n%d%s%d%s\n', length(Ifix), ' markers added in ', length(iicr), ' cell quadrants.')
    
 else
         

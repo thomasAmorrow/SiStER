@@ -41,24 +41,28 @@ for i=1:Ny
             if BC.bot(1)==1 % rollers
                 dvxdy=0;
             elseif BC.bot(1)==0 % no rollers
-                %dvxdy=-2*vx(i-1,j)/dy(i-1);
-                dvxdy=2.*(BC.bot(4)-vx(i-1,j))/dy(i-1);  %G.Ito needed for tangential velocity on base
+                dvxdy=-2*vx(i-1,j)/dy(i-1);
+                %dvxdy=2.*(BC.bot(4)-vx(i-1,j))/dy(i-1);  %G.Ito needed for tangential velocity on base
             end         
             EXY(i,j)= 0.5*(dvxdy + 2*(vy(i,j)-vy(i,j-1))/(dx(j-1)+dx(j)));
             
-        elseif j==1 && i>=2 && i<=Ny-1 
+        elseif j==1 && i>=2 && i<=Ny-1 %left
             if BC.left(1)==1 % rollers
                 dvydx=0;
-            elseif BC.left(1)==0 % no rollers
+            elseif (BC.left(1)==0 && length(BC.left)<4) % no rollers
                 dvydx=2*vy(i,j)/dx(j);
+			elseif (BC.left(1)==0 && length(BC.left)==4)
+				dvydx=2*(vy(i,j)-BC.left(4))/dx(j);
             end     
             EXY(i,j)=0.5*(2*(vx(i,j)-vx(i-1,j))/(dy(i-1)+dy(i)) + dvydx);
             
-        elseif j==Nx && i>=2 && i<=Ny-1
+        elseif j==Nx && i>=2 && i<=Ny-1 %right
             if BC.right(1)==1 % rollers
                 dvydx=0;
-            elseif BC.right(1)==0 % no rollers
+            elseif (BC.right(1)==0 && length(BC.right)<4) % no rollers
                 dvydx=-2*vy(i,j-1)/dx(j-1);
+			elseif (BC.right(1)==0 && length(BC.right)==4)
+				dvydx=-2*(BC.right(4)-vy(i,j-1))/dx(j-1); 
             end     
             EXY(i,j)=0.5*(2*(vx(i,j)-vx(i-1,j))/(dy(i-1)+dy(i)) + dvydx);
             
@@ -75,8 +79,10 @@ for i=1:Ny
             
             if BC.top(2)==0 % vy imposed on top (Dirichlet)
                 dvydx=0;
-            elseif BC.top(2)==3 % open top so set to be the same as adjacent node
+            elseif (length(BC.left)<4 && BC.top(2)==3 || BC.top(2)==2) % open top so set to be the same as adjacent node
                 dvydx=2*(vy(i,j+1)-vy(i,j))/(dx(j)+dx(j+1));
+			elseif (length(BC.left)==4 && BC.top(2)==3 || BC.top(2)==2)
+				dvydx=2*(vy(i,j)-BC.left(4))/(dx(j));
             else
                 disp(['Stopped in get_strain_rate:  EXY for corner elements not coded for BC.top(2)='....
                 num2str(BC.top(2))]);
@@ -93,8 +99,10 @@ for i=1:Ny
             end  
             if BC.top(2)==0 % vy imposed on top (Dirichlet)
                 dvydx=0;
-            elseif BC.top(2)==3 % open top so set to be the same as adjacent node
+            elseif (length(BC.right)<4 && BC.top(2)==3 || BC.top(2)==2) % open top so set to be the same as adjacent node
                  dvydx=2*(vy(i,j-1)-vy(i,j-2))./(dx(j-1)+dx(j-2));
+			elseif (length(BC.right)==4 && BC.top(2)==3 || BC.top(2)==2)
+				dvydx=2*(BC.right(4)-vy(i,j-1))/(dx(j-1));
             end  
             EXY(i,j)=(dvxdy + dvydx)/2;
             
@@ -104,10 +112,12 @@ for i=1:Ny
             elseif BC.bot(1)==0 % no rollers
                 dvxdy=-2*vx(i-1,j)/dy(i-1);
             end
-            if BC.bot(2)==0 % vy imposed on bottom (Dirichlet)
+            if BC.bot(2)==0 || BC.bot(2)==4% vy imposed on bottom (Dirichlet)
                 dvydx=0;
-            elseif BC.bot(2)==3 % open bottom so set to be the same as adjacent node
+            elseif (length(BC.right)<4 && BC.bot(2)==3 || BC.bot(2)==2) % open bottom so set to be the same as adjacent node
                 dvydx=2*(vy(i,j-1)-vy(i,j-2))./(dx(j-1)+dx(j-2));
+			elseif (length(BC.right)==4 && BC.bot(2)==3 || BC.bot(2)==2)
+				dvydx=2*(BC.right(4)-vy(i,j-1))/(dx(j-1));
             else
                 disp(['Stopped in get_strain_rate:  EXY for corner elements not coded for BC.bot(2)='....
                 num2str(BC.bot(2))]);
@@ -123,8 +133,10 @@ for i=1:Ny
             end  
             if BC.bot(2)==0 % vy imposed on bottom (Dirichlet)% rollers
                 dvydx=0;
-            elseif BC.bot(2)==3 % open bottom so set to be the same as adjacent node
+            elseif (length(BC.left)<4 && BC.bot(2)==3 || BC.bot(2)==2) % open bottom so set to be the same as adjacent node
                 dvydx=2*(vy(i,j+1)-vy(i,j))./(dx(j+1)+dx(j));
+			elseif (length(BC.left)==4 && BC.bot(2)==3 || BC.bot(2)==2)
+				dvydx=2*(vy(i,j)-BC.left(4))/(dx(j));
             end  
             EXY(i,j)=(dvxdy + dvydx)/2;
             

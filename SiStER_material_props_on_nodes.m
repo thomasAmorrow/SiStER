@@ -5,21 +5,13 @@
 %=========================================================================
 
 % PHASE PROPORTIONS AT NORMAL AND SHEAR NODES. G.Ito 8/16
-[phase_n] = SiStER_interp_phases_to_normal_nodes(xm,ym,icn,jcn,x,y,im, Nphase);
-[phase_s] = SiStER_interp_phases_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,im, Nphase);
-% phase_n and _s is a Ny*Nx*Nphase array containing the proportion
-% of each phase at each node - this gets used in get_ductile_rheology
-% functions
+[n2interp] = SiStER_interp_markers_to_normal_nodes(xm,ym,icn,jcn,x,y,im);
+phase_n=n2interp(1).data;
+phase_n=round(phase_n*1e10)/1e10;  %prevents a case in which phase_n>NPhase
 
-% OLD WAY TO INTERP PHASES: ONLY WORKED WELL WHEN MIXING 2 CONSECUTIVELY 
-% NUMBERED PHASES AT ANY NODE
-% [n2interp] = SiStER_interp_markers_to_normal_nodes(xm,ym,icn,jcn,x,y,im);
-% phase_n=n2interp(1).data;
-% phase_n=round(phase_n*1e10)/1e10;  %prevents a case in which phase_n>NPhase
-% 
-% [n2interp] = SiStER_interp_markers_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,im);
-% phase_s=n2interp(1).data;
-% phase_s=round(phase_s*1e10)/1e10; %prevents a case in which phase_n>NPhase
+[n2interp] = SiStER_interp_markers_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,im);
+phase_s=n2interp(1).data;
+phase_s=round(phase_s*1e10)/1e10; %prevents a case in which phase_n>NPhase
 
 % GET MARKER DENSITIES 
 [rhom]=SiStER_get_density(im,Tm,MAT);
@@ -42,12 +34,19 @@ Cohes_n=n2interp(1).data;
 [n2interp] = SiStER_interp_markers_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,cohes);
 Cohes_s = n2interp(1).data;  
 
-% GET FRICTION BASED ON MARKERS J.A. Olive 4/17
-[fric]=SiStER_get_friction(im,ep,MAT); % friction depends on plastic strain
-[n2interp] = SiStER_interp_markers_to_normal_nodes(xm,ym,icn,jcn,x,y,fric);
-Mu_n=n2interp(1).data;
-[n2interp] = SiStER_interp_markers_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,fric);
-Mu_s = n2interp(1).data; 
+[Mu_s]=SiStER_get_mean_material_prop(cell2mat({MAT([1:Nphase]).mu}),phase_s);
+Mu_n=zeros(Ny,Nx);
+[Mu_n(2:end,2:end)]=SiStER_get_mean_material_prop(cell2mat({MAT([1:Nphase]).mu}),phase_n(2:end,2:end));
+
+% FZ weakness T.Morrow JAN 3 2017 - sets value for epsIIm
+%%%    BAD BAD BAD
+%%% Causes problems in the solve
+%for bb=1:length(GEOM(2).fz)-1
+%	if (GEOM(2).fzstrong(bb)~=1)
+%		epsIIm(im>1 & ym<GEOM(2).top+GEOM(2).FZseed(2) & xm<=GEOM(2).fz(bb)*max(xm)+GEOM(2).FZseed(1) ...
+%			& xm>GEOM(2).fz(bb)*max(xm)-GEOM(2).FZseed(1))=1e10;%1/(1/MAT(3).pre_diff+1/MAT(3).pre_disc);
+%	end
+%end
 
 % ADVECTED strain rate invariant G.Ito 8/16
 [n2interp] = SiStER_interp_markers_to_normal_nodes(xm,ym,icn,jcn,x,y,epsIIm);
@@ -75,7 +74,7 @@ EXX_sOLD=SiStER_interp_normal_to_shear_nodes(EXX,dx,dy);
 EXY_nOLD=SiStER_interp_shear_to_normal_nodes(EXY);
 
 %TEMPERATURE ARRAYS NEEDED FOR DUCTILE RHEOLOGY  G.Ito 8/16
-[n2interp]=SiStER_interp_markers_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,Tm);
-Ts=n2interp(1).data;
-[n2interp]=SiStER_interp_markers_to_normal_nodes(xm,ym,icn,jcn,x,y,Tm);
-Tn=n2interp(1).data;
+Ts=SiStER_interp_markers_to_shear_nodes(xm,ym,icn,jcn,qd,x,y,Tm);
+Ts=Ts.data;
+Tn=SiStER_interp_markers_to_normal_nodes(xm,ym,icn,jcn,x,y,Tm);
+Tn=Tn.data;
